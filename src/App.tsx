@@ -105,6 +105,33 @@ export default function App() {
     });
   };
 
+  const handleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error("Erro no login:", err);
+      if (err?.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        showCustomAlert(
+          "Domínio não Autorizado 🔐",
+          `O domínio "${currentDomain}" ainda não está autorizado para login no console do Firebase.\n\nComo corrigir no Vercel/Produção:\n1. Acesse o Console do Firebase (console.firebase.google.com)\n2. Vá em Authentication -> Configurações (Settings) -> Domínios Autorizados (Authorized domains).\n3. Clique em "Adicionar domínio" e insira "${currentDomain}".`
+        );
+      } else if (err?.code === 'auth/popup-blocked') {
+        showCustomAlert(
+          "Popup Bloqueado 🚫",
+          "O navegador bloqueou a janela de login. Por favor, libere popups para este site e tente novamente."
+        );
+      } else if (err?.code === 'auth/cancelled-popup-request') {
+        // Silently handle cancelled popups
+      } else {
+        showCustomAlert(
+          "Falha na Autenticação ⚠️",
+          `Não foi possível realizar o login: ${err?.message || err}`
+        );
+      }
+    }
+  };
+
   // Layout View State
   const [zoom, setZoom] = useState<number>(0.85);
   const [panX, setPanX] = useState<number>(50);
@@ -1191,7 +1218,7 @@ export default function App() {
 
           {/* Delete connection button (Scissors/X) right in the middle */}
           <g 
-            className="group/link-btn cursor-pointer pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-200"
+            className="group/link-btn cursor-pointer pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-200 pdf-hide"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -1415,7 +1442,7 @@ export default function App() {
             </div>
           ) : (
             <button
-              onClick={loginWithGoogle}
+              onClick={handleLogin}
               className="cursor-pointer border border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 bg-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-2"
             >
               <Users className="h-3.5 w-3.5 shrink-0" />
@@ -1433,7 +1460,7 @@ export default function App() {
             <span>Modo Visitante: Seus organogramas estão salvos localmente neste navegador. Faça login com o Google para salvar de forma segura na nuvem e compartilhar com seu time!</span>
           </p>
           <button 
-            onClick={loginWithGoogle}
+            onClick={handleLogin}
             className="cursor-pointer bg-white text-slate-900 hover:bg-slate-100 px-3 py-1 rounded font-bold text-[11px] whitespace-nowrap"
           >
             Conectar Conta Google ☁️

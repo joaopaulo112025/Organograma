@@ -44,7 +44,7 @@ export default function OrgChartNodeCard({
               e.stopPropagation();
               onStartConnect(node.id, 'top', e);
             }}
-            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto"
+            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto pdf-hide"
             title="Arraste para conectar o topo"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -58,7 +58,7 @@ export default function OrgChartNodeCard({
               e.stopPropagation();
               onStartConnect(node.id, 'bottom', e);
             }}
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto"
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto pdf-hide"
             title="Arraste para conectar a base"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -72,7 +72,7 @@ export default function OrgChartNodeCard({
               e.stopPropagation();
               onStartConnect(node.id, 'left', e);
             }}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto"
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto pdf-hide"
             title="Arraste para conectar o lado esquerdo"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -86,7 +86,7 @@ export default function OrgChartNodeCard({
               e.stopPropagation();
               onStartConnect(node.id, 'right', e);
             }}
-            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto"
+            className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-125 border-2 border-white shadow-md cursor-crosshair z-30 transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center pointer-events-auto pdf-hide"
             title="Arraste para conectar o lado direito"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -173,7 +173,7 @@ export default function OrgChartNodeCard({
       </div>
 
       {/* Action Buttons overlaying on hover, styled sleekly */}
-      <div className="flex items-center justify-end gap-1.5 border-t border-slate-50 pt-2 mt-2">
+      <div className="flex items-center justify-end gap-1.5 border-t border-slate-50 pt-2 mt-2 pdf-hide">
         {/* Edit Button */}
         <button
           onClick={() => onEdit(node)}

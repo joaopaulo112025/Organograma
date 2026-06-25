@@ -263,6 +263,29 @@ export async function exportToPDF(
           applyComputedStyleMonkeypatch(clonedWin);
         }
 
+        // Inject high fidelity printing CSS overrides to prevent truncation and hide editing actions
+        const style = clonedDoc.createElement('style');
+        style.innerHTML = `
+          .pdf-hide {
+            display: none !important;
+          }
+          /* Prevent email/phone/text truncation on PDF */
+          .truncate {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-all !important;
+            display: inline-block !important;
+            max-width: 100% !important;
+          }
+          /* Ensure cards can slightly expand if contact lines wrap */
+          [id^="org-node-card-"] {
+            height: auto !important;
+            min-height: 195px !important;
+          }
+        `;
+        clonedDoc.head.appendChild(style);
+
         const clonedEl = clonedDoc.getElementById(elementId);
         if (clonedEl) {
           // Reset transform scale and dimensions to match the cropped bounding box
