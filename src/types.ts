@@ -12,6 +12,7 @@ export interface OrgNode {
   parentPort?: 'top' | 'bottom' | 'left' | 'right';
   childPort?: 'top' | 'bottom' | 'left' | 'right';
   cardColor?: string;    // Custom hex color (e.g. "#4f46e5") for the card styling
+  cardStyle?: 'soft' | 'solid' | 'border'; // Styling mode for the card
 }
 
 export interface OrgProject {

@@ -1897,6 +1897,7 @@ export default function App() {
                         onClick={() => {
                           const updated = { ...selectedNode };
                           delete updated.cardColor;
+                          delete updated.cardStyle;
                           handleUpdateNode(updated);
                         }}
                         className="text-[10px] font-semibold text-slate-400 hover:text-rose-600 transition-colors underline cursor-pointer"
@@ -1952,6 +1953,35 @@ export default function App() {
                       />
                     </div>
                   </div>
+
+                  {/* Card Style Selector - only visible when a custom color is active */}
+                  {selectedNode.cardColor && (
+                    <div className="pt-1.5 space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Estilo de Exibição da Cor
+                      </label>
+                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/60 gap-1">
+                        {[
+                          { key: 'soft', label: 'Suave' },
+                          { key: 'solid', label: 'Sólido' },
+                          { key: 'border', label: 'Borda' }
+                        ].map((styleOpt) => (
+                          <button
+                            key={styleOpt.key}
+                            type="button"
+                            onClick={() => handleUpdateNode({ ...selectedNode, cardStyle: styleOpt.key as any })}
+                            className={`flex-1 py-1 text-[11px] font-medium rounded-lg transition-all ${
+                              (selectedNode.cardStyle || 'soft') === styleOpt.key
+                                ? 'bg-white text-indigo-700 font-bold shadow-2xs border border-slate-200/50'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {styleOpt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes for prospecting (Extremely useful for selling B2B) */}

@@ -19,7 +19,7 @@ function getSoftBgColor(hex?: string) {
   const r = parseInt(cleanHex.substring(0, 2), 16);
   const g = parseInt(cleanHex.substring(2, 4), 16);
   const b = parseInt(cleanHex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.05)`;
+  return `rgba(${r}, ${g}, ${b}, 0.08)`;
 }
 
 function getSoftBorderColor(hex?: string) {
@@ -29,7 +29,7 @@ function getSoftBorderColor(hex?: string) {
   const r = parseInt(cleanHex.substring(0, 2), 16);
   const g = parseInt(cleanHex.substring(2, 4), 16);
   const b = parseInt(cleanHex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.25)`;
+  return `rgba(${r}, ${g}, ${b}, 0.3)`;
 }
 
 export default function OrgChartNodeCard({
@@ -41,18 +41,53 @@ export default function OrgChartNodeCard({
   onStartConnect,
   connectingFromId
 }: OrgChartNodeCardProps) {
+  const isSolid = node.cardColor && node.cardStyle === 'solid';
+  const isBorder = node.cardColor && node.cardStyle === 'border';
+  const isSoft = !isSolid && !isBorder; // Default style is soft
+
   const customBg = getSoftBgColor(node.cardColor);
   const customBorder = getSoftBorderColor(node.cardColor);
+
+  let bgStyle = '#ffffff';
+  let borderStyle = undefined;
+  let borderClass = 'border-slate-100';
+
+  if (node.cardColor) {
+    if (isSolid) {
+      bgStyle = node.cardColor;
+      borderStyle = 'rgba(0,0,0,0.15)';
+      borderClass = '';
+    } else if (isBorder) {
+      bgStyle = '#ffffff';
+      borderStyle = node.cardColor;
+      borderClass = 'border-2';
+    } else {
+      bgStyle = customBg || '#ffffff';
+      borderStyle = customBorder || undefined;
+      borderClass = '';
+    }
+  }
+
+  // Define styling-based class modifications
+  const nameColorClass = isSolid ? 'text-white' : 'text-slate-800';
+  const roleColorClass = isSolid ? 'text-white/80' : 'text-slate-500';
+  const mailPhoneColorClass = isSolid ? 'text-white/90 hover:text-white' : 'text-slate-600 hover:text-indigo-600';
+  const mailPhoneUnderlineClass = (val?: string) => val ? `underline cursor-pointer ${isSolid ? 'text-white' : ''}` : (isSolid ? 'text-white/40 cursor-not-allowed' : 'text-slate-400 cursor-not-allowed');
+  const iconBoxClass = isSolid ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400';
+  const iconColorClass = isSolid ? 'text-white/60' : 'text-slate-400';
+  const dividerClass = isSolid ? 'border-white/15' : 'border-slate-100';
+  const notesClass = isSolid ? 'bg-black/15 text-white/90' : 'bg-slate-50 text-slate-500';
+  const footerClass = isSolid ? 'border-white/15' : 'border-slate-50';
 
   return (
     <div
       id={`org-node-card-${node.id}`}
       data-node-id={node.id}
       style={{
-        backgroundColor: customBg || '#ffffff',
-        borderColor: customBorder || undefined
+        backgroundColor: bgStyle,
+        borderColor: borderStyle || undefined
       }}
-      className={`rounded-xl shadow-md hover:shadow-xl border transition-all duration-300 w-[260px] p-4 flex flex-col justify-between relative group pointer-events-auto ${
+      className={`rounded-xl shadow-md hover:shadow-xl border transition-all duration-300 w-[260px] p-4 flex flex-col justify-between relative group pointer-events-auto ${borderClass} ${
         connectingFromId === node.id 
           ? 'ring-2 ring-indigo-500 scale-[1.02] border-indigo-200' 
           : connectingFromId 
@@ -121,11 +156,13 @@ export default function OrgChartNodeCard({
         </>
       )}
 
-      {/* Upper Color bar */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-1.5 rounded-t-xl opacity-80"
-        style={{ backgroundColor: node.cardColor || (isRoot ? '#4f46e5' : '#94a3b8') }}
-      />
+      {/* Upper Color bar (only visible if not fully solid) */}
+      {!isSolid && (
+        <div 
+          className="absolute top-0 left-0 right-0 h-1.5 rounded-t-xl opacity-90"
+          style={{ backgroundColor: node.cardColor || (isRoot ? '#4f46e5' : '#94a3b8') }}
+        />
+      )}
 
       {/* Main Info */}
       <div className="flex flex-col gap-2 mt-1">
@@ -134,23 +171,31 @@ export default function OrgChartNodeCard({
           <div className="flex items-center justify-between min-h-[22px]">
             {node.department ? (
               <span 
-                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100 truncate max-w-[170px] flex items-center gap-1" 
+                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border truncate max-w-[170px] flex items-center gap-1" 
                 title={node.department}
-                style={{
-                  backgroundColor: customBg || undefined,
-                  color: node.cardColor || undefined,
-                  borderColor: customBorder || undefined
-                }}
+                style={
+                  isSolid 
+                    ? {
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        color: '#ffffff',
+                        borderColor: 'rgba(255, 255, 255, 0.15)'
+                      }
+                    : {
+                        backgroundColor: customBg || undefined,
+                        color: node.cardColor || undefined,
+                        borderColor: customBorder || undefined
+                      }
+                }
               >
                 <Building2 
-                  className="h-3 w-3 text-indigo-500 shrink-0" 
-                  style={{ color: node.cardColor || undefined }}
+                  className="h-3 w-3 shrink-0" 
+                  style={{ color: isSolid ? '#ffffff' : (node.cardColor || undefined) }}
                 />
                 {node.department}
               </span>
             ) : <div />}
             {isRoot && (
-              <span className="text-[9px] bg-slate-900 text-white font-medium px-1.5 py-0.5 rounded shrink-0">
+              <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0 ${isSolid ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
                 LÍDER
               </span>
             )}
@@ -159,14 +204,14 @@ export default function OrgChartNodeCard({
 
         {/* Member Details */}
         <div className="flex items-start gap-2.5 mt-1">
-          <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400 shrink-0">
+          <div className={`p-1.5 rounded-lg shrink-0 ${iconBoxClass}`}>
             <User className="h-4 w-4" />
           </div>
           <div className="overflow-hidden">
-            <h4 className="text-sm font-semibold text-slate-800 break-words line-clamp-1 hover:line-clamp-none transition-all duration-300">
+            <h4 className={`text-sm font-semibold break-words line-clamp-1 hover:line-clamp-none transition-all duration-300 ${nameColorClass}`}>
               {node.name || 'Nome do Colaborador'}
             </h4>
-            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
+            <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${roleColorClass}`}>
               <Briefcase className="h-3 w-3 shrink-0" />
               <span className="truncate">{node.role || 'Cargo / Função'}</span>
             </div>
@@ -174,14 +219,14 @@ export default function OrgChartNodeCard({
         </div>
 
         {/* Contact Links */}
-        <div className="border-t border-slate-100 pt-2.5 mt-1 flex flex-col gap-1.5">
+        <div className={`border-t pt-2.5 mt-1 flex flex-col gap-1.5 ${dividerClass}`}>
           {/* Email */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 hover:text-indigo-600 transition-colors">
-            <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <div className={`flex items-center gap-2 text-xs transition-colors ${mailPhoneColorClass}`}>
+            <Mail className={`h-3.5 w-3.5 shrink-0 ${iconColorClass}`} />
             <a 
               href={node.email ? `mailto:${node.email}` : undefined} 
               onClick={(e) => !node.email && e.preventDefault()}
-              className={`truncate font-mono ${node.email ? 'underline cursor-pointer' : 'text-slate-400 cursor-not-allowed'}`}
+              className={`truncate font-mono ${mailPhoneUnderlineClass(node.email)}`}
               title={node.email || 'Nenhum e-mail adicionado'}
             >
               {node.email || 'Sem e-mail'}
@@ -189,12 +234,12 @@ export default function OrgChartNodeCard({
           </div>
 
           {/* Phone */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 hover:text-indigo-600 transition-colors">
-            <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <div className={`flex items-center gap-2 text-xs transition-colors ${mailPhoneColorClass}`}>
+            <Phone className={`h-3.5 w-3.5 shrink-0 ${iconColorClass}`} />
             <a 
               href={node.phone ? `tel:${node.phone}` : undefined} 
               onClick={(e) => !node.phone && e.preventDefault()}
-              className={`truncate font-mono ${node.phone ? 'underline cursor-pointer' : 'text-slate-400 cursor-not-allowed'}`}
+              className={`truncate font-mono ${mailPhoneUnderlineClass(node.phone)}`}
               title={node.phone || 'Nenhum telefone adicionado'}
             >
               {node.phone || 'Sem telefone'}
@@ -203,8 +248,8 @@ export default function OrgChartNodeCard({
 
           {/* Notes summary badge if they exist */}
           {node.notes && (
-            <div className="flex items-start gap-1.5 bg-slate-50 px-2 py-1 rounded mt-0.5 text-[10px] text-slate-500 line-clamp-2" title={node.notes}>
-              <FileText className="h-3 w-3 mt-0.5 text-slate-400 shrink-0" />
+            <div className={`flex items-start gap-1.5 px-2 py-1 rounded mt-0.5 text-[10px] line-clamp-2 ${notesClass}`} title={node.notes}>
+              <FileText className={`h-3 w-3 mt-0.5 shrink-0 ${iconColorClass}`} />
               <span className="italic leading-normal">{node.notes}</span>
             </div>
           )}
@@ -212,11 +257,15 @@ export default function OrgChartNodeCard({
       </div>
 
       {/* Action Buttons overlaying on hover, styled sleekly */}
-      <div className="flex items-center justify-end gap-1.5 border-t border-slate-50 pt-2 mt-2 pdf-hide">
+      <div className={`flex items-center justify-end gap-1.5 border-t pt-2 mt-2 pdf-hide ${footerClass}`}>
         {/* Edit Button */}
         <button
           onClick={() => onEdit(node)}
-          className="p-1 px-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-all flex items-center gap-1 text-[11px]"
+          className={`p-1 px-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] ${
+            isSolid 
+              ? 'hover:bg-white/15 text-white/95 hover:text-white' 
+              : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+          }`}
           title="Editar dados"
         >
           <Edit className="h-3.5 w-3.5" />
@@ -226,7 +275,11 @@ export default function OrgChartNodeCard({
         {/* Add Subordinate Button */}
         <button
           onClick={() => onAddChild(node.id)}
-          className="p-1 px-1.5 rounded-md hover:bg-indigo-50 text-indigo-500 hover:text-indigo-600 transition-all flex items-center gap-1 text-[11px]"
+          className={`p-1 px-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] ${
+            isSolid 
+              ? 'hover:bg-white/20 text-white/95 hover:text-white' 
+              : 'hover:bg-indigo-50 text-indigo-500 hover:text-indigo-600'
+          }`}
           title="Adicionar subordinado"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -237,7 +290,11 @@ export default function OrgChartNodeCard({
         {!isRoot && (
           <button
             onClick={() => onDelete(node.id)}
-            className="p-1 px-1.5 rounded-md hover:bg-rose-50 text-rose-400 hover:text-rose-600 transition-all flex items-center gap-1 text-[11px] ml-auto"
+            className={`p-1 px-1.5 rounded-md transition-all flex items-center gap-1 text-[11px] ${
+              isSolid 
+                ? 'hover:bg-red-500/35 text-white/85 hover:text-white' 
+                : 'hover:bg-rose-50 text-rose-400 hover:text-rose-600'
+            } ml-auto`}
             title="Remover"
           >
             <Trash2 className="h-3.5 w-3.5" />
