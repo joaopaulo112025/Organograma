@@ -206,7 +206,7 @@ export async function exportToPDF(
     // 1. Calculate the actual bounding box of the nodes to crop out unnecessary empty whitespace
     const coordsList = Object.values(coords);
     const cardWidth = 260;
-    const cardHeight = 195;
+    const cardHeight = 280; // Safer height calculation to ensure taller cards are never clipped at the bottom!
 
     let minX = Infinity;
     let minY = Infinity;
@@ -228,7 +228,7 @@ export async function exportToPDF(
     }
 
     // Add visual padding around the extreme cards to prevent line/text clipping
-    const padding = 60;
+    const padding = 65;
     minX -= padding;
     minY -= padding;
     maxX += padding;
@@ -244,6 +244,8 @@ export async function exportToPDF(
 
     // Reset transform (zoom/pan) during capture to get full resolution/accurate scale
     element.style.transform = 'none';
+    element.style.width = '5000px';
+    element.style.height = '3500px';
 
     // Call html2canvas with optimal options for high resolution print
     const canvas = await html2canvas(element, {
@@ -252,10 +254,14 @@ export async function exportToPDF(
       allowTaint: true,
       logging: false,
       backgroundColor: '#f8fafc', // Clean slate-50 background for corporate layouts
+      x: minX,
+      y: minY,
       width: width,
       height: height,
-      windowWidth: width,
-      windowHeight: height,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 5000,
+      windowHeight: 3500,
       onclone: (clonedDoc) => {
         // Monkeypatch cloned context's window to prevent sub-element oklch failures
         const clonedWin = clonedDoc.defaultView;
@@ -269,15 +275,28 @@ export async function exportToPDF(
           .pdf-hide {
             display: none !important;
           }
-          /* Prevent email/phone/text truncation on PDF */
+          /* Override all font families to a safe high-fidelity system sans-serif font */
+          * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+          }
+          /* Prevent email/phone/text truncation on PDF - wrap beautifully */
           .truncate, [class*="truncate"] {
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
-            word-break: break-word !important;
+            word-break: break-all !important;
             overflow-wrap: break-word !important;
             display: inline-block !important;
             max-width: 195px !important; /* Allow wrapping while leaving space for icons */
+          }
+          /* Ensure line-clamp doesn't fail on PDF - let names wrap */
+          .line-clamp-1 {
+            display: block !important;
+            -webkit-line-clamp: unset !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+            word-break: break-word !important;
           }
           /* Make monospace text (email, phone) slightly smaller and cleaner in PDF */
           .font-mono {
@@ -289,32 +308,60 @@ export async function exportToPDF(
           [id^="org-node-card-"] {
             height: auto !important;
             min-height: 195px !important;
-            border: 1px solid #cbd5e1;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-            background-color: #ffffff;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+            filter: none !important;
+            transition: none !important;
+            transform: none !important;
+          }
+          /* Mapping standard Tailwind classes to exact RGB values to prevent html2canvas oklch parsing glitches */
+          .border-slate-100 {
+            border-color: #f1f5f9 !important;
+          }
+          .border-slate-200 {
+            border-color: #e2e8f0 !important;
+          }
+          .bg-slate-50 {
+            background-color: #f8fafc !important;
+          }
+          .bg-slate-100 {
+            background-color: #f1f5f9 !important;
+          }
+          .text-slate-800 {
+            color: #1e293b !important;
+          }
+          .text-slate-700 {
+            color: #334155 !important;
+          }
+          .text-slate-600 {
+            color: #475569 !important;
+          }
+          .text-slate-500 {
+            color: #64748b !important;
+          }
+          .text-slate-400 {
+            color: #94a3b8 !important;
+          }
+          .bg-indigo-50 {
+            background-color: #e0e7ff !important;
+          }
+          .text-indigo-600 {
+            color: #4f46e5 !important;
+          }
+          /* Solid connections and SVG elements rendering */
+          svg path {
+            stroke-opacity: 1 !important;
+            vector-effect: non-scaling-stroke !important;
           }
         `;
         clonedDoc.head.appendChild(style);
 
         const clonedEl = clonedDoc.getElementById(elementId);
         if (clonedEl) {
-          // Reset transform scale and dimensions to match the cropped bounding box
+          // Reset transform scale and dimensions to match original board size flat
           clonedEl.style.transform = 'none';
-          clonedEl.style.width = `${width}px`;
-          clonedEl.style.height = `${height}px`;
-
-          // Inject a translated wrapper to shift all coordinates by (-minX, -minY)
-          const wrapper = clonedDoc.createElement('div');
-          wrapper.style.position = 'absolute';
-          wrapper.style.left = `${-minX}px`;
-          wrapper.style.top = `${-minY}px`;
-          wrapper.style.width = '5000px';
-          wrapper.style.height = '3500px';
-
-          while (clonedEl.firstChild) {
-            wrapper.appendChild(clonedEl.firstChild);
-          }
-          clonedEl.appendChild(wrapper);
+          clonedEl.style.width = '5000px';
+          clonedEl.style.height = '3500px';
         }
       }
     });

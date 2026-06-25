@@ -58,9 +58,11 @@ export default function App() {
   const [projects, setProjects] = useState<OrgProject[]>([]);
   const [activeProject, setActiveProject] = useState<OrgProject | null>(null);
   const activeProjectIdRef = useRef<string | null>(null);
+  const activeProjectRef = useRef<OrgProject | null>(null);
 
   useEffect(() => {
     activeProjectIdRef.current = activeProject ? activeProject.id : null;
+    activeProjectRef.current = activeProject;
   }, [activeProject]);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -231,14 +233,30 @@ export default function App() {
           if (savedActiveId) {
             const foundInCloud = cloudProjects.find(p => p.id === savedActiveId);
             if (foundInCloud) {
-              setActiveProject(foundInCloud);
+              const currentActive = activeProjectRef.current;
+              if (!currentActive || currentActive.id !== foundInCloud.id) {
+                setActiveProject(foundInCloud);
+              } else {
+                const localTime = currentActive.updatedAt ? new Date(currentActive.updatedAt).getTime() : 0;
+                const cloudTime = foundInCloud.updatedAt ? new Date(foundInCloud.updatedAt).getTime() : 0;
+                // Only override local state if cloud change is significantly newer (e.g. edited in another tab/device)
+                if (cloudTime > localTime + 5000) {
+                  setActiveProject(foundInCloud);
+                }
+              }
             } else if (activeProjectIdRef.current === savedActiveId) {
               // Keep the current active project as-is since it is already active in local state (e.g. just created/modified)
             } else if (cloudProjects.length > 0) {
-              setActiveProject(cloudProjects[0]);
+              const currentActive = activeProjectRef.current;
+              if (!currentActive || currentActive.id !== cloudProjects[0].id) {
+                setActiveProject(cloudProjects[0]);
+              }
             }
           } else if (cloudProjects.length > 0) {
-            setActiveProject(cloudProjects[0]);
+            const currentActive = activeProjectRef.current;
+            if (!currentActive || currentActive.id !== cloudProjects[0].id) {
+              setActiveProject(cloudProjects[0]);
+            }
           } else {
             // First time auth, let's migrate any LocalStorage projects!
             migrateLocalProjectsToCloud(cloudProjects, currentUser.uid);
@@ -1114,13 +1132,18 @@ export default function App() {
         const newX = Math.round(mouseCanvasX - dragNodeOffset.current.x);
         const newY = Math.round(mouseCanvasY - dragNodeOffset.current.y);
 
+        // Constrain to canvas limits (5000px width, 3500px height)
+        // Card is 260px wide, and around 195px high. Let's leave a safe padding.
+        const boundedX = Math.max(10, Math.min(4740, newX));
+        const boundedY = Math.max(10, Math.min(3250, newY));
+
         // Responsive instantaneous state rendering
         const updatedNodes = activeProject.nodes.map(n => {
           if (n.id === draggingNodeId) {
             return {
               ...n,
-              positionX: newX,
-              positionY: newY
+              positionX: boundedX,
+              positionY: boundedY
             };
           }
           return n;
@@ -1223,13 +1246,23 @@ export default function App() {
   // Calculate layout coordinates for rendering (prefer user custom drag coords, fallback to auto layout)
   const nodes = activeProject?.nodes || [];
   const autoCoords = calculateLayout(nodes, 310, 240);
+
+  const getNodeCoordsSafely = (nodeId: string): { x: number; y: number } => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return { x: 50, y: 50 };
+    if (node.positionX !== undefined && node.positionY !== undefined && !isNaN(node.positionX) && !isNaN(node.positionY)) {
+      return { x: node.positionX, y: node.positionY };
+    }
+    const auto = autoCoords[nodeId] || { x: 50, y: 50 };
+    return {
+      x: isNaN(auto.x) ? 50 : auto.x,
+      y: isNaN(auto.y) ? 50 : auto.y
+    };
+  };
+
   const coords: Record<string, { x: number; y: number }> = {};
   nodes.forEach(node => {
-    if (node.positionX !== undefined && node.positionY !== undefined) {
-      coords[node.id] = { x: node.positionX, y: node.positionY };
-    } else {
-      coords[node.id] = autoCoords[node.id] || { x: 50, y: 50 };
-    }
+    coords[node.id] = getNodeCoordsSafely(node.id);
   });
 
   // Search filter
@@ -1333,18 +1366,26 @@ export default function App() {
             d={pathD}
             fill="none"
             stroke="transparent"
-            strokeWidth="12"
+            strokeWidth="18"
             strokeLinecap="round"
-            className="hover:stroke-indigo-100/40 cursor-pointer transition-all duration-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedNode(node); // click line to select and edit this connection!
+            }}
+            className="hover:stroke-indigo-100/50 cursor-pointer transition-all duration-200"
           />
           {/* Main line path */}
           <path
             d={pathD}
             fill="none"
-            stroke="#cbd5e1"
-            strokeWidth="3"
+            stroke={selectedNode?.id === node.id ? "#6366f1" : "#cbd5e1"}
+            strokeWidth={selectedNode?.id === node.id ? "4.5" : "3"}
             strokeLinecap="round"
-            className="transition-all duration-300 hover:stroke-indigo-400 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedNode(node); // click line to select and edit this connection!
+            }}
+            className="transition-all duration-300 hover:stroke-indigo-500 cursor-pointer"
           />
           {/* Bullet joints */}
           <circle cx={start.x} cy={start.y} r="4.5" fill="#6366f1" className="ring-2 ring-white" />
@@ -1352,25 +1393,33 @@ export default function App() {
 
           {/* Delete connection button (Scissors/X) right in the middle */}
           <g 
-            className="group/link-btn cursor-pointer pointer-events-auto opacity-70 hover:opacity-100 transition-opacity duration-200 pdf-hide"
+            className="group/link-btn cursor-pointer pointer-events-auto opacity-80 hover:opacity-100 transition-opacity duration-200 pdf-hide"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               handleDeleteConnection(node.id);
             }}
           >
+            {/* Larger invisible touch/click buffer */}
             <circle 
               cx={mid.x} 
               cy={mid.y} 
-              r="10" 
+              r="14" 
+              fill="transparent" 
+              className="hover:fill-indigo-50/10 cursor-pointer"
+            />
+            <circle 
+              cx={mid.x} 
+              cy={mid.y} 
+              r="11" 
               fill="#ffffff" 
               stroke="#f43f5e" 
-              strokeWidth="2" 
-              className="transition-all duration-200 group-hover/link-btn:scale-125 group-hover/link-btn:fill-rose-50 shadow-sm"
+              strokeWidth="2.5" 
+              className="transition-all duration-200 group-hover/link-btn:scale-130 group-hover/link-btn:fill-rose-50 shadow-md"
             />
             {/* Tiny sleek X */}
-            <line x1={mid.x - 3} y1={mid.y - 3} x2={mid.x + 3} y2={mid.y + 3} stroke="#e11d48" strokeWidth="2" strokeLinecap="round" />
-            <line x1={mid.x + 3} y1={mid.y - 3} x2={mid.x - 3} y2={mid.y + 3} stroke="#e11d48" strokeWidth="2" strokeLinecap="round" />
+            <line x1={mid.x - 3.5} y1={mid.y - 3.5} x2={mid.x + 3.5} y2={mid.y + 3.5} stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1={mid.x + 3.5} y1={mid.y - 3.5} x2={mid.x - 3.5} y2={mid.y + 3.5} stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" />
             <title>Excluir esta linha (Desconectar colaborador)</title>
           </g>
         </g>
@@ -2008,29 +2057,95 @@ export default function App() {
                   </p>
                 </div>
 
-                {selectedNode.parentId !== null && (
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = {
+                {/* Conexão & Hierarquia */}
+                <div className="p-3.5 bg-slate-100/50 rounded-xl border border-slate-200/60 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 border-b border-slate-200/50 pb-1.5 uppercase tracking-wide">
+                    <span>🔗</span>
+                    Conexão & Hierarquia
+                  </h4>
+
+                  {/* Superior / Gestor Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                      Gestor Superior (Líder)
+                    </label>
+                    <select
+                      value={selectedNode.parentId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const newParentId = val === '' ? null : val;
+                        handleUpdateNode({
                           ...selectedNode,
-                          parentId: null,
-                          parentPort: undefined,
-                          childPort: undefined
-                        };
-                        handleUpdateNode(updated);
-                        showCustomAlert(
-                          "Líder Principal 🌟", 
-                          `"${selectedNode.name || 'Colaborador'}" foi desconectado(a) de seu superior e agora é um Líder Principal no topo do organograma.`
-                        );
+                          parentId: newParentId,
+                          // Reset to standard ports on supervisor change to keep line direction logical
+                          parentPort: 'bottom',
+                          childPort: 'top'
+                        });
+                        
+                        if (newParentId === null) {
+                          showCustomAlert("Conexão Atualizada 🌟", `"${selectedNode.name}" foi desconectado(a) e agora é um Líder Principal.`);
+                        } else {
+                          const pName = nodes.find(n => n.id === newParentId)?.name || 'novo gestor';
+                          showCustomAlert("Conexão Atualizada 🔗", `"${selectedNode.name}" agora responde a "${pName}".`);
+                        }
                       }}
-                      className="w-full bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-950 font-bold py-2.5 px-3 rounded-xl transition-all text-[11px] text-center flex items-center justify-center gap-1.5 border border-slate-200 cursor-pointer shadow-2xs"
+                      className="w-full bg-white border border-slate-200 focus:border-indigo-500 p-2 rounded-xl text-xs outline-none transition-all text-slate-700 cursor-pointer"
                     >
-                      <span>Tornar Líder Principal (Desvincular Superior)</span>
-                    </button>
+                      <option value="">Nenhum (Tornar Líder Principal)</option>
+                      {nodes
+                        .filter(n => n.id !== selectedNode.id && !isDescendant(nodes, n.id, selectedNode.id))
+                        .map(n => (
+                          <option key={n.id} value={n.id}>
+                            {n.name} ({n.role || 'Sem cargo'})
+                          </option>
+                        ))
+                      }
+                    </select>
                   </div>
-                )}
+
+                  {/* Ports Configuration (Only show if there is a parent) */}
+                  {selectedNode.parentId && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block">
+                          Porta Saída (Gestor)
+                        </label>
+                        <select
+                          value={selectedNode.parentPort || 'bottom'}
+                          onChange={(e) => handleUpdateNode({
+                            ...selectedNode,
+                            parentPort: e.target.value as any
+                          })}
+                          className="w-full bg-white border border-slate-200 focus:border-indigo-500 p-1.5 rounded-lg text-[11px] outline-none transition-all text-slate-700 cursor-pointer font-medium"
+                        >
+                          <option value="bottom">Base (Inferior)</option>
+                          <option value="top">Topo (Superior)</option>
+                          <option value="left">Esquerda</option>
+                          <option value="right">Direita</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block">
+                          Porta Entrada (Membro)
+                        </label>
+                        <select
+                          value={selectedNode.childPort || 'top'}
+                          onChange={(e) => handleUpdateNode({
+                            ...selectedNode,
+                            childPort: e.target.value as any
+                          })}
+                          className="w-full bg-white border border-slate-200 focus:border-indigo-500 p-1.5 rounded-lg text-[11px] outline-none transition-all text-slate-700 cursor-pointer font-medium"
+                        >
+                          <option value="top">Topo (Superior)</option>
+                          <option value="bottom">Base (Inferior)</option>
+                          <option value="left">Esquerda</option>
+                          <option value="right">Direita</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               </div>
 
