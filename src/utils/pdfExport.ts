@@ -270,18 +270,28 @@ export async function exportToPDF(
             display: none !important;
           }
           /* Prevent email/phone/text truncation on PDF */
-          .truncate {
+          .truncate, [class*="truncate"] {
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
-            word-break: break-all !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
             display: inline-block !important;
-            max-width: 100% !important;
+            max-width: 195px !important; /* Allow wrapping while leaving space for icons */
+          }
+          /* Make monospace text (email, phone) slightly smaller and cleaner in PDF */
+          .font-mono {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            color: #334155 !important; /* slate-700 for maximum readability */
           }
           /* Ensure cards can slightly expand if contact lines wrap */
           [id^="org-node-card-"] {
             height: auto !important;
             min-height: 195px !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+            background-color: #ffffff !important;
           }
         `;
         clonedDoc.head.appendChild(style);
