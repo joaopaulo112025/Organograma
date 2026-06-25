@@ -17,7 +17,6 @@ import {
   ZoomOut, 
   Maximize2, 
   Laptop, 
-  LogOut, 
   Users, 
   ChevronRight, 
   Settings, 
@@ -1416,71 +1415,8 @@ export default function App() {
               {pdfStatus === 'generating' ? 'Gerando PDF...' : pdfStatus === 'success' ? 'PDF Baixado! ✅' : pdfStatus === 'error' ? 'Erro! ❌' : 'Exportar PDF'}
             </span>
           </button>
-
-          {/* Sign In with Google Controls */}
-          {authLoading ? (
-            <div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse" />
-          ) : currentUser ? (
-            <div className="flex items-center gap-2">
-              <img
-                src={currentUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
-                alt={currentUser.displayName || 'User'}
-                referrerPolicy="no-referrer"
-                className="h-8 w-8 rounded-full border border-indigo-200"
-                title={`${currentUser.displayName} (${currentUser.email})`}
-              />
-              <button
-                onClick={logoutUser}
-                className="p-1 px-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-500 transition-all text-xs"
-                title="Sair da conta"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setIsVercelHelpOpen(true)}
-                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-100"
-                title="Ajuda com Login / Vercel"
-              >
-                <HelpCircle className="h-4 w-4 shrink-0" />
-              </button>
-              <button
-                onClick={handleLogin}
-                className="cursor-pointer border border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:bg-indigo-50/50 bg-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-2"
-              >
-                <Users className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden sm:inline">Nuvem / Login</span>
-              </button>
-            </div>
-          )}
         </div>
       </header>
-
-      {/* SUBBAR FOR GUESTS TO NOTICE SECURE STORAGE */}
-      {!currentUser && !authLoading && (
-        <div className="bg-slate-900 text-white px-6 py-2.5 text-xs flex items-center justify-between z-10 gap-4 flex-wrap shrink-0">
-          <p className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-purple-400 animate-ping" />
-            <span>Modo Visitante: Seus organogramas estão salvos localmente neste navegador. Faça login com o Google para salvar de forma segura na nuvem e compartilhar com seu time!</span>
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsVercelHelpOpen(true)}
-              className="text-slate-300 hover:text-white underline font-medium text-[11px] cursor-pointer"
-            >
-              Problemas ao conectar (Vercel)? 🔐
-            </button>
-            <button 
-              onClick={handleLogin}
-              className="cursor-pointer bg-white text-slate-900 hover:bg-slate-100 px-3 py-1 rounded font-bold text-[11px] whitespace-nowrap"
-            >
-              Conectar Conta Google ☁️
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* MAIN LAYOUT WRAPPER */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -1951,24 +1887,15 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Auth profile quick link inside sidebar footer */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 space-y-2">
+                {/* Device and local mode notice inside sidebar footer */}
+                <div className="p-4 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 space-y-1">
                   <div className="flex items-center gap-2">
                     <Laptop className="h-4 w-4 text-slate-400" />
-                    <span>Dispositivo: Web browser offline-first</span>
+                    <span>Armazenamento local ativo offline-first</span>
                   </div>
-                  {currentUser ? (
-                    <div className="bg-white px-2.5 py-1.5 rounded border border-slate-200 flex items-center justify-between">
-                      <span className="truncate max-w-[150px] font-mono font-medium text-slate-600 text-[10px]">
-                        Conta: {currentUser.email}
-                      </span>
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 rounded font-medium px-1">NUVEM SINC</span>
-                    </div>
-                  ) : (
-                    <p className="leading-relaxed">
-                      Seus projetos estão salvos no armazenamento local. Para compartilhar, mude de computador ou colabore logando com o Google.
-                    </p>
-                  )}
+                  <p className="leading-relaxed text-slate-400">
+                    Seus organogramas estão salvos de forma segura e automática no navegador.
+                  </p>
                 </div>
 
               </motion.nav>
@@ -2054,129 +1981,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* MODAL WINDOW: VERCEL / FIREBASE LOGIN TROUBLESHOOTING */}
-        <AnimatePresence>
-          {isVercelHelpOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              {/* Translucent overlay */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsVercelHelpOpen(false)}
-                className="absolute inset-0 bg-slate-900 pointer-events-auto"
-              />
 
-              {/* Dialog Panel */}
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative z-10 border border-slate-100 pointer-events-auto max-h-[90vh] overflow-y-auto"
-              >
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="bg-amber-50 text-amber-600 p-2 rounded-lg">
-                      <HelpCircle className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Como Resolver Erros de Login</h3>
-                      <p className="text-xs text-slate-500">Passo a passo para conectar sua conta no Vercel</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsVercelHelpOpen(false)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-4 text-left">
-                  {/* Primary Cause Alert */}
-                  <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4 text-xs text-slate-700 leading-relaxed">
-                    <p className="font-bold text-amber-800 mb-1 flex items-center gap-1.5">
-                      <span>⚠️ Domínio Não Autorizado no Firebase</span>
-                    </p>
-                    Quando você cria um projeto no Vercel (ou qualquer outro servidor de produção), o Firebase bloqueia o login por segurança até que você explicitamente informe que aquele domínio é confiável.
-                  </div>
-
-                  {/* STEP BY STEP CONFIGURATION */}
-                  <div>
-                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Instruções para Autorizar seu site (Apenas 1 Minuto)</h4>
-                    <ol className="space-y-3.5 text-xs text-slate-600">
-                      <li className="flex gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-600 shrink-0 text-[10px]">1</span>
-                        <div>
-                          <p className="font-semibold text-slate-800">Copie o domínio do seu site:</p>
-                          <div className="mt-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-[10px] text-slate-700 select-all">
-                            <span>{window.location.hostname}</span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(window.location.hostname);
-                                alert("Domínio copiado para a área de transferência! 🎉");
-                              }}
-                              className="ml-auto text-indigo-600 hover:text-indigo-800 font-bold hover:underline cursor-pointer text-[9px]"
-                            >
-                              Copiar 📋
-                            </button>
-                          </div>
-                        </div>
-                      </li>
-
-                      <li className="flex gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-600 shrink-0 text-[10px]">2</span>
-                        <div>
-                          <p className="font-semibold text-slate-800">Acesse o Console do seu Firebase:</p>
-                          <p className="mt-0.5">Abra <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">console.firebase.google.com</a> no navegador.</p>
-                        </div>
-                      </li>
-
-                      <li className="flex gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-600 shrink-0 text-[10px]">3</span>
-                        <div>
-                          <p className="font-semibold text-slate-800">Navegue até os Domínios Autorizados:</p>
-                          <p className="mt-0.5 text-slate-500">Vá em <strong className="text-slate-700">Authentication</strong> ➔ aba <strong className="text-slate-700">Settings</strong> (Configurações) ➔ seção <strong className="text-slate-700">Authorized domains</strong> (Domínios autorizados).</p>
-                        </div>
-                      </li>
-
-                      <li className="flex gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-600 shrink-0 text-[10px]">4</span>
-                        <div>
-                          <p className="font-semibold text-slate-800">Adicione o Domínio:</p>
-                          <p className="mt-0.5">Clique em <strong className="text-slate-700">Add domain</strong> (Adicionar domínio), cole o domínio copiado no passo 1 e clique em salvar. Pronto! Agora o login funcionará instantaneamente.</p>
-                        </div>
-                      </li>
-                    </ol>
-                  </div>
-
-                  {/* Popup Blocker Alert */}
-                  <div className="border-t border-slate-100 pt-3 mt-1.5">
-                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Outros Problemas Frequentes</h4>
-                    <div className="space-y-2 text-xs text-slate-600">
-                      <p>
-                        <strong className="text-slate-800">🚫 Bloqueador de Popups:</strong> Se o botão de login for clicado e nada abrir, seu navegador pode estar bloqueando janelas pop-up. Verifique a barra de endereços para permitir popups para este site.
-                      </p>
-                      <p>
-                        <strong className="text-slate-800">📱 Navegadores de Redes Sociais:</strong> Ao clicar em links dentro do Instagram, Facebook ou WhatsApp, o login do Google é bloqueado por segurança pelo próprio app. Abra o site no navegador padrão do celular (Safari ou Chrome) para realizar o login.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-4 border-t border-slate-100 mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setIsVercelHelpOpen(false)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
-                  >
-                    Entendido, vou configurar! 👍
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
 
         {/* CUSTOM MODAL: ALERT & CONFIRM DIALOGS */}
         <AnimatePresence>
