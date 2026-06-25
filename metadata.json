@@ -1,0 +1,6 @@
+{
+  "name": "Organograma de Empresas",
+  "description": "Crie, salve e exporte organogramas corporativos estruturais para prospecção de vendas B2B, incluindo contatos diretos (e-mail, telefone) e dicas de abordagem dos decisores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

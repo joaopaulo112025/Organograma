@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "An organizational chart project containing hierarchical structures of a company.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the project"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the project/company"
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this project"
+        },
+        "nodes": {
+          "type": "array",
+          "description": "A list of nodes making up the organizational chart"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the project was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the project was last updated"
+        }
+      },
+      "required": ["name", "userId", "nodes", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collection of organizational chart projects."
+    }
+  }
+}
