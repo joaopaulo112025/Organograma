@@ -184,7 +184,12 @@ function applyComputedStyleMonkeypatch(targetWindow: Window & typeof globalThis)
   };
 }
 
-export async function exportToPDF(elementId: string, projectName: string, onLoadStatus: (status: 'idle' | 'generating' | 'success' | 'error') => void) {
+export async function exportToPDF(
+  elementId: string,
+  projectName: string,
+  coords: Record<string, { x: number; y: number }>,
+  onLoadStatus: (status: 'idle' | 'generating' | 'success' | 'error') => void
+) {
   const element = document.getElementById(elementId);
   if (!element) {
     console.error(`Element with id ${elementId} not found.`);
@@ -198,28 +203,59 @@ export async function exportToPDF(elementId: string, projectName: string, onLoad
   const restoreMainPatch = applyComputedStyleMonkeypatch(window);
 
   try {
-    // 1. Temporarily prepare the element for pristine rendering
+    // 1. Calculate the actual bounding box of the nodes to crop out unnecessary empty whitespace
+    const coordsList = Object.values(coords);
+    const cardWidth = 260;
+    const cardHeight = 195;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    if (coordsList.length > 0) {
+      for (const pos of coordsList) {
+        if (pos.x < minX) minX = pos.x;
+        if (pos.y < minY) minY = pos.y;
+        if (pos.x + cardWidth > maxX) maxX = pos.x + cardWidth;
+        if (pos.y + cardHeight > maxY) maxY = pos.y + cardHeight;
+      }
+    } else {
+      minX = 0;
+      minY = 0;
+      maxX = 1200;
+      maxY = 800;
+    }
+
+    // Add visual padding around the extreme cards to prevent line/text clipping
+    const padding = 60;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    // Temporarily prepare the element for pristine high-res rendering
     const originalTransform = element.style.transform;
     const originalWidth = element.style.width;
     const originalHeight = element.style.height;
 
-    // Reset transform (zoom/pan) during capture to get the full resolution/accurate coordinates
+    // Reset transform (zoom/pan) during capture to get full resolution/accurate scale
     element.style.transform = 'none';
-    
-    const scrollWidth = element.scrollWidth;
-    const scrollHeight = element.scrollHeight;
 
     // Call html2canvas with optimal options for high resolution print
     const canvas = await html2canvas(element, {
-      scale: 2, // Retains high crispness for small text
+      scale: 2, // Retains extreme crispness for high density prints
       useCORS: true,
       allowTaint: true,
       logging: false,
-      backgroundColor: '#f8fafc', // Same as app background
-      width: scrollWidth,
-      height: scrollHeight,
-      windowWidth: scrollWidth + 200,
-      windowHeight: scrollHeight + 200,
+      backgroundColor: '#f8fafc', // Clean slate-50 background for corporate layouts
+      width: width,
+      height: height,
+      windowWidth: width,
+      windowHeight: height,
       onclone: (clonedDoc) => {
         // Monkeypatch cloned context's window to prevent sub-element oklch failures
         const clonedWin = clonedDoc.defaultView;
@@ -229,14 +265,28 @@ export async function exportToPDF(elementId: string, projectName: string, onLoad
 
         const clonedEl = clonedDoc.getElementById(elementId);
         if (clonedEl) {
+          // Reset transform scale and dimensions to match the cropped bounding box
           clonedEl.style.transform = 'none';
-          clonedEl.style.width = `${scrollWidth}px`;
-          clonedEl.style.height = `${scrollHeight}px`;
+          clonedEl.style.width = `${width}px`;
+          clonedEl.style.height = `${height}px`;
+
+          // Inject a translated wrapper to shift all coordinates by (-minX, -minY)
+          const wrapper = clonedDoc.createElement('div');
+          wrapper.style.position = 'absolute';
+          wrapper.style.left = `${-minX}px`;
+          wrapper.style.top = `${-minY}px`;
+          wrapper.style.width = '5000px';
+          wrapper.style.height = '3500px';
+
+          while (clonedEl.firstChild) {
+            wrapper.appendChild(clonedEl.firstChild);
+          }
+          clonedEl.appendChild(wrapper);
         }
       }
     });
 
-    // Restore original styles
+    // Restore original styles on main DOM
     element.style.transform = originalTransform;
     element.style.width = originalWidth;
     element.style.height = originalHeight;
@@ -246,28 +296,64 @@ export async function exportToPDF(elementId: string, projectName: string, onLoad
 
     const imgData = canvas.toDataURL('image/png');
     
-    // Determine page orientation based on aspect ratio
-    const widthMm = (canvas.width * 25.4) / (96 * 2); // converts px depth to mm
-    const heightMm = (canvas.height * 25.4) / (96 * 2);
-    
+    // Determine page dimensions based on the millimeter equivalent size of the bounding box
+    const widthMm = (width * 25.4) / 96; 
+    const heightMm = (height * 25.4) / 96;
+
+    // Enforce high quality landscape-preferred document sizes
     const orientation = widthMm > heightMm ? 'l' : 'p';
+    const pdfWidth = Math.max(widthMm + 40, 297); // ensure at least A4 size (297mm)
+    const pdfHeight = Math.max(heightMm + 55, 210); // extra vertical space for elegant header/footer
+
     const pdf = new jsPDF({
       orientation: orientation,
       unit: 'mm',
-      format: [Math.max(widthMm + 40, 297), Math.max(heightMm + 40, 210)] // ensure at least A4 landscape or fit appropriately
+      format: [pdfWidth, pdfHeight]
     });
 
-    // Add visual header/title
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.text(`Organograma Corporativo - ${projectName}`, 20, 15);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(100);
-    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} | Prospecção de Contatos Corporativos`, 20, 21);
+    // Calculate elegant center alignments inside the page canvas
+    const xOffset = (pdfWidth - widthMm) / 2;
+    const availableHeightForImage = pdfHeight - 55;
+    const yOffset = 30 + Math.max(0, (availableHeightForImage - heightMm) / 2);
 
-    // Draw the organizational chart image
-    pdf.addImage(imgData, 'PNG', 20, 28, widthMm, heightMm);
+    // Render professional corporate header decoration
+    pdf.setDrawColor(79, 70, 229); // indigo-600 accent color
+    pdf.setLineWidth(1.2);
+    pdf.line(20, 25, pdfWidth - 20, 25);
+
+    // Left title block
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(15, 23, 42); // slate-900
+    pdf.text(`Organograma Corporativo - ${projectName}`, 20, 16);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(100, 116, 139); // slate-500
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR');
+    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    pdf.text(`Gerado em: ${dateStr} às ${timeStr} • Mapeamento de Decisores`, 20, 21);
+
+    // Right brand label
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(79, 70, 229); // indigo-600
+    pdf.text("ORGANOGRAMA INTELIGENTE B2B", pdfWidth - 80, 21);
+
+    // Draw the organizational chart image with high fidelity centering
+    pdf.addImage(imgData, 'PNG', xOffset, yOffset, widthMm, heightMm);
+
+    // Render beautiful footer line and disclaimer
+    pdf.setDrawColor(226, 232, 240); // slate-200
+    pdf.setLineWidth(0.5);
+    pdf.line(20, pdfHeight - 18, pdfWidth - 20, pdfHeight - 18);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(148, 163, 184); // slate-400
+    pdf.text("Este documento contém informações estruturais confidenciais de prospecção comercial.", 20, pdfHeight - 12);
+    pdf.text("Página 1 de 1", pdfWidth - 38, pdfHeight - 12);
 
     // Save output
     const rawName = projectName.toLowerCase()

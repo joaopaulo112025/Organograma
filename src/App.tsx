@@ -367,6 +367,36 @@ export default function App() {
     }
   }, [activeProject]);
 
+  // Restore viewport zoom & pan when active project changes
+  useEffect(() => {
+    if (!activeProject) return;
+    const key = `view_state_${activeProject.id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const { z, x, y } = JSON.parse(saved);
+        if (typeof z === 'number') setZoom(z);
+        if (typeof x === 'number') setPanX(x);
+        if (typeof y === 'number') setPanY(y);
+      } catch (e) {
+        console.error("Erro ao restaurar posição do canvas:", e);
+      }
+    } else {
+      // Default reset
+      setZoom(0.85);
+      setPanX(50);
+      setPanY(30);
+    }
+  }, [activeProject?.id]);
+
+  // Save viewport zoom & pan when modified
+  useEffect(() => {
+    if (!activeProject) return;
+    const key = `view_state_${activeProject.id}`;
+    const state = { z: zoom, x: panX, y: panY };
+    localStorage.setItem(key, JSON.stringify(state));
+  }, [activeProject?.id, zoom, panX, panY]);
+
   // Helper: Migrate local projects to cloud upon first login
   const migrateLocalProjectsToCloud = async (cloudList: OrgProject[], userId: string) => {
     const localData = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
@@ -514,7 +544,7 @@ export default function App() {
     } else {
       saveDebounceTimeoutRef.current = setTimeout(() => {
         saveProjectToDbImmediately(finalProject);
-      }, 1000); // 1 second debounce
+      }, 500); // 500ms debounce for extremely fast background saving
     }
   };
 
@@ -819,7 +849,7 @@ export default function App() {
 
   const handleExportPDF = () => {
     if (!activeProject) return;
-    exportToPDF('organograma-viewport-area', activeProject.name, (status) => {
+    exportToPDF('organograma-board', activeProject.name, coords, (status) => {
       setPdfStatus(status);
       if (status === 'success' || status === 'error') {
         setTimeout(() => setPdfStatus('idle'), 4000);
@@ -952,7 +982,7 @@ export default function App() {
   const handleCanvasMouseUp = (e: React.MouseEvent) => {
     // 1. If we just finished moving a node, write to Firestore/localStorage
     if (draggingNodeId && activeProject) {
-      updateProjectInStore(activeProject);
+      updateProjectInStore(activeProject, true); // force immediate save on drop
       setDraggingNodeId(null);
       isDraggingCanvas.current = false;
       return;
@@ -986,7 +1016,7 @@ export default function App() {
           ...activeProject,
           nodes: updatedNodes,
           updatedAt: new Date().toISOString()
-        });
+        }, true);
 
         // Show a discrete notification alert of success
         const sourceName = activeProject.nodes.find(n => n.id === connectingFrom.nodeId)?.name || 'Colaborador';
@@ -1023,7 +1053,7 @@ export default function App() {
           ...activeProject,
           nodes: cleanedNodes,
           updatedAt: new Date().toISOString()
-        });
+        }, true);
         showCustomAlert("Layout Harmonizado! ✨", "Os colaboradores foram reagrupados na diagramação inteligente padrão.");
       }
     );
@@ -1537,6 +1567,7 @@ export default function App() {
               
               {/* The scaled visual board */}
               <div 
+                id="organograma-board"
                 style={{
                   transform: `scale(${zoom}) translate(${panX}px, ${panY}px)`,
                   transformOrigin: '0 0',
