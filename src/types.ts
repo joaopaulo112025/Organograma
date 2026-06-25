@@ -11,6 +11,7 @@ export interface OrgNode {
   positionY?: number;    // Custom position Y for free layout
   parentPort?: 'top' | 'bottom' | 'left' | 'right';
   childPort?: 'top' | 'bottom' | 'left' | 'right';
+  cardColor?: string;    // Custom hex color (e.g. "#4f46e5") for the card styling
 }
 
 export interface OrgProject {

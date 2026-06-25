@@ -289,9 +289,9 @@ export async function exportToPDF(
           [id^="org-node-card-"] {
             height: auto !important;
             min-height: 195px !important;
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #cbd5e1;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-            background-color: #ffffff !important;
+            background-color: #ffffff;
           }
         `;
         clonedDoc.head.appendChild(style);

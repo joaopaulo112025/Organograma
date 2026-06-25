@@ -34,7 +34,9 @@ import {
   CloudOff,
   LayoutGrid,
   Building2,
-  Edit2
+  Edit2,
+  Copy,
+  ClipboardPaste
 } from 'lucide-react';
 
 import { db, auth, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from './firebase';
@@ -69,6 +71,8 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState<boolean>(false);
   const [renameProjectName, setRenameProjectName] = useState<string>('');
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState<boolean>(false);
+  const [pasteData, setPasteData] = useState<string>('');
   const [isVercelHelpOpen, setIsVercelHelpOpen] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
   const [pdfStatus, setPdfStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
@@ -834,6 +838,122 @@ export default function App() {
     showCustomAlert("Projeto Renomeado! 📝", `O organograma foi renomeado para "${renameProjectName.trim()}" e salvo com sucesso.`);
   };
 
+  const handleDuplicateProject = async (proj: OrgProject, event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+
+    const clonedId = `proj_${Date.now()}`;
+    const clonedProj: OrgProject = {
+      ...proj,
+      id: clonedId,
+      name: `${proj.name} (Cópia)`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, clonedId);
+    activeProjectIdRef.current = clonedId;
+
+    setProjects(prev => [clonedProj, ...prev]);
+    setActiveProject(clonedProj);
+    if (clonedProj.nodes && clonedProj.nodes.length > 0) {
+      setSelectedNode(clonedProj.nodes[0]);
+    }
+
+    if (currentUser) {
+      const path = 'projects';
+      setDoc(doc(db, path, clonedProj.id), cleanUndefinedValues({
+        ...clonedProj,
+        userId: currentUser.uid,
+        createdAt: Timestamp.fromDate(new Date()),
+        updatedAt: Timestamp.fromDate(new Date())
+      })).catch(err => {
+        handleFirestoreError(err, OperationType.CREATE, path);
+      });
+    } else {
+      const localData = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
+      const localList: OrgProject[] = localData ? JSON.parse(localData) : [];
+      const updatedList = [clonedProj, ...localList];
+      localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(updatedList));
+    }
+
+    showCustomAlert("Organograma Duplicado! 📋", `Uma cópia de "${proj.name}" foi criada com sucesso.`);
+  };
+
+  const handleCopyProjectToClipboard = async (proj: OrgProject, event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+    
+    try {
+      const exportableData = {
+        name: proj.name,
+        nodes: proj.nodes,
+        copiedAt: new Date().toISOString(),
+        type: 'bioqav_org_chart_export'
+      };
+
+      const jsonString = JSON.stringify(exportableData, null, 2);
+      await navigator.clipboard.writeText(jsonString);
+      showCustomAlert("Copiado com Sucesso! 📋✅", `Os dados do organograma "${proj.name}" foram copiados para a sua área de transferência. Agora você pode colá-los em outro navegador, aba ou dispositivo usando a opção "Colar Organograma".`);
+    } catch (err) {
+      console.error("Erro ao copiar para clipboard:", err);
+      // Fallback fallback: open alert with text so they can manually copy if permissions are blocked
+      showCustomAlert("Erro ao Copiar ❌", "Não foi possível acessar a área de transferência do sistema automaticamente. Por favor, certifique-se de dar permissões de área de transferência.");
+    }
+  };
+
+  const handlePasteProject = (pastedText: string) => {
+    try {
+      const parsed = JSON.parse(pastedText.trim());
+      
+      if (!parsed || !parsed.name || !Array.isArray(parsed.nodes)) {
+        showCustomAlert("Dados Inválidos ❌", "O conteúdo colado não parece ser um organograma válido. Copie novamente o organograma de origem.");
+        return;
+      }
+
+      const newId = `proj_${Date.now()}`;
+      const importedProj: OrgProject = {
+        id: newId,
+        name: `${parsed.name} (Colado)`,
+        userId: currentUser ? currentUser.uid : 'guest',
+        nodes: parsed.nodes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(LOCAL_STORAGE_ACTIVE_ID_KEY, importedProj.id);
+      activeProjectIdRef.current = importedProj.id;
+
+      setProjects(prev => [importedProj, ...prev]);
+      setActiveProject(importedProj);
+      if (importedProj.nodes && importedProj.nodes.length > 0) {
+         setSelectedNode(importedProj.nodes[0]);
+      }
+
+      if (currentUser) {
+        const path = 'projects';
+        setDoc(doc(db, path, importedProj.id), cleanUndefinedValues({
+          ...importedProj,
+          userId: currentUser.uid,
+          createdAt: Timestamp.fromDate(new Date()),
+          updatedAt: Timestamp.fromDate(new Date())
+        })).catch(err => {
+          handleFirestoreError(err, OperationType.CREATE, path);
+        });
+      } else {
+        const localData = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
+        const localList: OrgProject[] = localData ? JSON.parse(localData) : [];
+        const updatedList = [importedProj, ...localList];
+        localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(updatedList));
+      }
+
+      setIsPasteModalOpen(false);
+      setPasteData('');
+      showCustomAlert("Organograma Colado! 📋🎉", `O organograma "${parsed.name}" foi colado e importado com sucesso neste dispositivo.`);
+    } catch (err) {
+      console.error("Erro ao importar/colar:", err);
+      showCustomAlert("Erro ao Importar ❌", "Ocorreu um erro ao processar os dados colados. Verifique se copiou todo o conteúdo do organograma original.");
+    }
+  };
+
   const handleDeleteProject = async (projId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     
@@ -1403,13 +1523,29 @@ export default function App() {
           </button>
 
           {activeProject && (
-            <button
-              onClick={(e) => handleDeleteProject(activeProject.id, e)}
-              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer border-l border-slate-200 pl-2 ml-1"
-              title="Excluir este organograma permanentemente"
-            >
-              <Trash2 className="h-3.5 w-3.5 shrink-0" />
-            </button>
+            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
+              <button
+                onClick={(e) => handleCopyProjectToClipboard(activeProject, e)}
+                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all cursor-pointer"
+                title="Copiar Organograma para colar em outro local"
+              >
+                <Copy className="h-3.5 w-3.5 shrink-0" />
+              </button>
+              <button
+                onClick={(e) => handleDuplicateProject(activeProject, e)}
+                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-all cursor-pointer"
+                title="Duplicar este organograma"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5 shrink-0" />
+              </button>
+              <button
+                onClick={(e) => handleDeleteProject(activeProject.id, e)}
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                title="Excluir este organograma permanentemente"
+              >
+                <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -1749,6 +1885,75 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Custom Color Selector */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Cor de Destaque do Card
+                    </label>
+                    {selectedNode.cardColor && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = { ...selectedNode };
+                          delete updated.cardColor;
+                          handleUpdateNode(updated);
+                        }}
+                        className="text-[10px] font-semibold text-slate-400 hover:text-rose-600 transition-colors underline cursor-pointer"
+                      >
+                        Remover Cor
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                    {[
+                      { hex: '#4f46e5', label: 'Indigo' },
+                      { hex: '#0284c7', label: 'Azul' },
+                      { hex: '#059669', label: 'Verde' },
+                      { hex: '#d97706', label: 'Laranja' },
+                      { hex: '#e11d48', label: 'Rosa' },
+                      { hex: '#7c3aed', label: 'Roxo' },
+                      { hex: '#0d9488', label: 'Teal' },
+                      { hex: '#475569', label: 'Slate' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        onClick={() => handleUpdateNode({ ...selectedNode, cardColor: preset.hex })}
+                        className={`w-6 h-6 rounded-full border transition-all cursor-pointer relative ${
+                          selectedNode.cardColor === preset.hex 
+                            ? 'ring-2 ring-indigo-500 scale-110 border-white shadow-sm' 
+                            : 'border-slate-200 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={preset.label}
+                      >
+                        {selectedNode.cardColor === preset.hex && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-bold">✓</span>
+                        )}
+                      </button>
+                    ))}
+
+                    {/* Custom Picker */}
+                    <div className="flex items-center gap-1.5 ml-auto border border-slate-200 rounded-lg px-2 py-0.5 bg-white shadow-2xs">
+                      <input
+                        type="color"
+                        value={selectedNode.cardColor || '#4f46e5'}
+                        onChange={(e) => handleUpdateNode({ ...selectedNode, cardColor: e.target.value })}
+                        className="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent"
+                        title="Cor personalizada"
+                      />
+                      <input
+                        type="text"
+                        value={selectedNode.cardColor || ''}
+                        placeholder="#Hex"
+                        onChange={(e) => handleUpdateNode({ ...selectedNode, cardColor: e.target.value })}
+                        className="w-14 bg-transparent text-[9px] outline-none font-mono text-slate-700 uppercase"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Notes for prospecting (Extremely useful for selling B2B) */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block flex items-center justify-between">
@@ -1854,7 +2059,7 @@ export default function App() {
                 </div>
 
                 {/* Subbar Button for creation */}
-                <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-2">
                   <button
                     onClick={() => {
                       setIsProjectsSidebarOpen(false);
@@ -1864,6 +2069,17 @@ export default function App() {
                   >
                     <Plus className="h-4 w-4" />
                     <span>Mapear Nova Empresa</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsProjectsSidebarOpen(false);
+                      setPasteData('');
+                      setIsPasteModalOpen(true);
+                    }}
+                    className="w-full border border-dashed border-emerald-300 hover:border-emerald-400 text-emerald-700 hover:bg-emerald-50 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ClipboardPaste className="h-4 w-4" />
+                    <span>Colar Organograma Importado</span>
                   </button>
                 </div>
 
@@ -1905,14 +2121,34 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Delete Project icon */}
-                          <button
-                            onClick={(e) => handleDeleteProject(proj.id, e)}
-                            className="p-1 px-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded transition-colors"
-                            title="Deletar este mapeamento"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Copy Project icon */}
+                            <button
+                              onClick={(e) => handleCopyProjectToClipboard(proj, e)}
+                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                              title="Copiar dados deste organograma"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Duplicate Project icon */}
+                            <button
+                              onClick={(e) => handleDuplicateProject(proj, e)}
+                              className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors cursor-pointer"
+                              title="Duplicar este organograma"
+                            >
+                              <ClipboardPaste className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Delete Project icon */}
+                            <button
+                              onClick={(e) => handleDeleteProject(proj.id, e)}
+                              className="p-1 px-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
+                              title="Deletar este mapeamento"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })
@@ -2081,6 +2317,108 @@ export default function App() {
         </AnimatePresence>
 
 
+
+        {/* MODAL WINDOW: PASTE/IMPORT AN ORGANOGRAM */}
+        <AnimatePresence>
+          {isPasteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Translucent overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  setIsPasteModalOpen(false);
+                  setPasteData('');
+                }}
+                className="absolute inset-0 bg-slate-900 pointer-events-auto"
+              />
+
+              {/* Dialog Panel */}
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 border border-slate-100 pointer-events-auto"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl">
+                    <ClipboardPaste className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Colar Organograma</h3>
+                    <p className="text-xs text-slate-500">Cole o organograma copiado de outro local</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Option 1: Quick Auto Paste */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const clipboardText = await navigator.clipboard.readText();
+                        if (clipboardText) {
+                          setPasteData(clipboardText);
+                          handlePasteProject(clipboardText);
+                        } else {
+                          showCustomAlert("Área de Transferência Vazia 📋", "Não encontramos nenhum texto na sua área de transferência. Tente colar manualmente abaixo.");
+                        }
+                      } catch (err) {
+                        console.error("Erro ao ler área de transferência:", err);
+                        showCustomAlert("Permissão Necessária 🔒", "Não foi possível ler a área de transferência automaticamente. Por favor, cole o conteúdo manualmente na caixa de texto abaixo.");
+                      }
+                    }}
+                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2 border border-emerald-200"
+                  >
+                    <ClipboardPaste className="h-4 w-4 shrink-0" />
+                    <span>Colar Automaticamente do Clipboard</span>
+                  </button>
+
+                  <div className="relative flex items-center justify-center my-2">
+                    <span className="absolute bg-white px-2 text-[10px] text-slate-400 font-medium uppercase">ou cole manualmente</span>
+                    <hr className="w-full border-slate-100" />
+                  </div>
+
+                  {/* Option 2: Manual Textarea */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Dados do Organograma (Código Copiado)
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={pasteData}
+                      placeholder='Cole aqui os dados copiados (começa com {"name": ...})'
+                      onChange={(e) => setPasteData(e.target.value)}
+                      className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 p-3 rounded-xl text-xs outline-none transition-all resize-none font-mono text-[10px] text-slate-600"
+                    />
+                  </div>
+
+                  <div className="flex gap-2.5 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPasteModalOpen(false);
+                        setPasteData('');
+                      }}
+                      className="px-4 py-2 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-600 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!pasteData.trim()}
+                      onClick={() => handlePasteProject(pasteData)}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                    >
+                      Processar e Importar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* CUSTOM MODAL: ALERT & CONFIRM DIALOGS */}
         <AnimatePresence>

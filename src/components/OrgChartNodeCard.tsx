@@ -12,6 +12,26 @@ interface OrgChartNodeCardProps {
   connectingFromId?: string | null;
 }
 
+function getSoftBgColor(hex?: string) {
+  if (!hex) return undefined;
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) return undefined;
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.05)`;
+}
+
+function getSoftBorderColor(hex?: string) {
+  if (!hex) return undefined;
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) return undefined;
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.25)`;
+}
+
 export default function OrgChartNodeCard({
   node,
   onEdit,
@@ -21,16 +41,23 @@ export default function OrgChartNodeCard({
   onStartConnect,
   connectingFromId
 }: OrgChartNodeCardProps) {
+  const customBg = getSoftBgColor(node.cardColor);
+  const customBorder = getSoftBorderColor(node.cardColor);
+
   return (
     <div
       id={`org-node-card-${node.id}`}
       data-node-id={node.id}
-      className={`bg-white rounded-xl shadow-md hover:shadow-xl border transition-all duration-300 w-[260px] p-4 flex flex-col justify-between relative group pointer-events-auto ${
+      style={{
+        backgroundColor: customBg || '#ffffff',
+        borderColor: customBorder || undefined
+      }}
+      className={`rounded-xl shadow-md hover:shadow-xl border transition-all duration-300 w-[260px] p-4 flex flex-col justify-between relative group pointer-events-auto ${
         connectingFromId === node.id 
           ? 'ring-2 ring-indigo-500 scale-[1.02] border-indigo-200' 
           : connectingFromId 
             ? 'ring-2 ring-emerald-400 ring-dashed scale-[0.98] border-emerald-200 hover:ring-solid hover:ring-emerald-500 hover:scale-100' 
-            : 'border-slate-100'
+            : node.cardColor ? '' : 'border-slate-100'
       }`}
     >
       {/* Visual ports for drag to connect */}
@@ -95,9 +122,10 @@ export default function OrgChartNodeCard({
       )}
 
       {/* Upper Color bar */}
-      <div className={`absolute top-0 left-0 right-0 h-1.5 rounded-t-xl opacity-80 ${
-        isRoot ? 'bg-indigo-600' : 'bg-slate-400'
-      }`} />
+      <div 
+        className="absolute top-0 left-0 right-0 h-1.5 rounded-t-xl opacity-80"
+        style={{ backgroundColor: node.cardColor || (isRoot ? '#4f46e5' : '#94a3b8') }}
+      />
 
       {/* Main Info */}
       <div className="flex flex-col gap-2 mt-1">
@@ -105,8 +133,19 @@ export default function OrgChartNodeCard({
         {(node.department || isRoot) && (
           <div className="flex items-center justify-between min-h-[22px]">
             {node.department ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100 truncate max-w-[170px] flex items-center gap-1" title={node.department}>
-                <Building2 className="h-3 w-3 text-indigo-500 shrink-0" />
+              <span 
+                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100 truncate max-w-[170px] flex items-center gap-1" 
+                title={node.department}
+                style={{
+                  backgroundColor: customBg || undefined,
+                  color: node.cardColor || undefined,
+                  borderColor: customBorder || undefined
+                }}
+              >
+                <Building2 
+                  className="h-3 w-3 text-indigo-500 shrink-0" 
+                  style={{ color: node.cardColor || undefined }}
+                />
                 {node.department}
               </span>
             ) : <div />}
