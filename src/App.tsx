@@ -33,7 +33,8 @@ import {
   Cloud,
   CloudOff,
   LayoutGrid,
-  Building2
+  Building2,
+  Edit2
 } from 'lucide-react';
 
 import { db, auth, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from './firebase';
@@ -66,6 +67,8 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null);
   const [isProjectsSidebarOpen, setIsProjectsSidebarOpen] = useState<boolean>(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState<boolean>(false);
+  const [renameProjectName, setRenameProjectName] = useState<string>('');
   const [isVercelHelpOpen, setIsVercelHelpOpen] = useState<boolean>(false);
   const [newProjectName, setNewProjectName] = useState<string>('');
   const [pdfStatus, setPdfStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
@@ -816,6 +819,21 @@ export default function App() {
     setIsNewProjectModalOpen(false);
   };
 
+  const handleRenameProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProject || !renameProjectName.trim()) return;
+
+    const updated: OrgProject = {
+      ...activeProject,
+      name: renameProjectName.trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    updateProjectInStore(updated, true);
+    setIsRenameModalOpen(false);
+    showCustomAlert("Projeto Renomeado! 📝", `O organograma foi renomeado para "${renameProjectName.trim()}" e salvo com sucesso.`);
+  };
+
   const handleDeleteProject = async (projId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     
@@ -1325,9 +1343,23 @@ export default function App() {
         {/* Middle Area: Active Project Controls */}
         <div className="hidden md:flex items-center gap-3 bg-slate-50 border border-slate-200 py-1.5 px-3.5 rounded-xl">
           <Folder className="h-4 w-4 text-slate-400" />
-          <span className="text-sm font-semibold text-slate-700 max-w-[200px] truncate">
-            {activeProject ? activeProject.name : 'Selecione um projeto'}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-semibold text-slate-700 max-w-[160px] truncate">
+              {activeProject ? activeProject.name : 'Selecione um projeto'}
+            </span>
+            {activeProject && (
+              <button
+                onClick={() => {
+                  setRenameProjectName(activeProject.name);
+                  setIsRenameModalOpen(true);
+                }}
+                className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors cursor-pointer"
+                title="Renomear este organograma"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           
           {/* Auto Saving Status indicators */}
           {activeProject && (
@@ -1973,6 +2005,73 @@ export default function App() {
                       className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
                     >
                       Criar Organograma
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL WINDOW: RENAME ACTIVE COMPANY OR PROJECT */}
+        <AnimatePresence>
+          {isRenameModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Translucent overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsRenameModalOpen(false)}
+                className="absolute inset-0 bg-slate-900 pointer-events-auto"
+              />
+
+              {/* Dialog Panel */}
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative z-10 border border-slate-100 pointer-events-auto"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl">
+                    <Edit2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Renomear Organograma</h3>
+                    <p className="text-xs text-slate-500">Altere o nome da empresa ou projeto mapeado</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleRenameProject} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Novo Nome do Projeto / Empresa
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={renameProjectName}
+                      placeholder="Ex: Coca Cola Brasil, Tech Corp S/A"
+                      onChange={(e) => setRenameProjectName(e.target.value)}
+                      className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 py-2.5 px-4 rounded-xl text-xs outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="flex gap-2.5 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsRenameModalOpen(false)}
+                      className="px-4 py-2 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-600 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!renameProjectName.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                    >
+                      Salvar Alteração
                     </button>
                   </div>
                 </form>
