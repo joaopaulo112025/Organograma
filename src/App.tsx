@@ -393,11 +393,11 @@ export default function App() {
 
         const path = 'projects';
         try {
-          await setDoc(doc(db, path, localProj.id), {
+          await setDoc(doc(db, path, localProj.id), cleanUndefinedValues({
             ...updatedProj,
             createdAt: Timestamp.fromDate(new Date(localProj.createdAt || new Date())),
             updatedAt: Timestamp.fromDate(new Date())
-          });
+          }));
         } catch (err) {
           console.error("Erro ao migrar projeto local:", err);
         }
@@ -411,6 +411,32 @@ export default function App() {
     } catch (e) {
       console.error("Erro na migração:", e);
     }
+  };
+
+  // Helper to deep sanitize undefined values for Firestore
+  const isPlainObject = (val: any): boolean => {
+    if (typeof val !== 'object' || val === null) return false;
+    const proto = Object.getPrototypeOf(val);
+    return proto === null || proto === Object.prototype;
+  };
+
+  const cleanUndefinedValues = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(cleanUndefinedValues);
+    }
+    if (isPlainObject(obj)) {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          const val = obj[key];
+          if (val !== undefined) {
+            cleaned[key] = cleanUndefinedValues(val);
+          }
+        }
+      }
+      return cleaned;
+    }
+    return obj;
   };
 
   // Helper: Save Project immediately without debouncing
@@ -431,12 +457,12 @@ export default function App() {
           ...updatedProject,
           userId: currentUser.uid
         };
-        await setDoc(doc(db, path, finalProject.id), {
+        await setDoc(doc(db, path, finalProject.id), cleanUndefinedValues({
           ...finalProject,
           // Convert date to Firestore Timestamp
           createdAt: Timestamp.fromDate(new Date(finalProject.createdAt || new Date())),
           updatedAt: Timestamp.fromDate(new Date())
-        });
+        }));
         setSavingStatus('saved');
         // Clear backup since it succeeded
         try {
@@ -535,12 +561,12 @@ export default function App() {
             const backedProj: OrgProject = JSON.parse(backupData);
             // If the backup has more nodes or is newer, upload it
             const path = 'projects';
-            await setDoc(doc(db, path, backedProj.id), {
+            await setDoc(doc(db, path, backedProj.id), cleanUndefinedValues({
               ...backedProj,
               userId: currentUser.uid,
               createdAt: Timestamp.fromDate(new Date(backedProj.createdAt || new Date())),
               updatedAt: Timestamp.fromDate(new Date())
-            });
+            }));
             localStorage.removeItem(`backup_pending_${proj.id}`);
           } catch (e) {
             console.error("Erro ao sincronizar backup pendente:", e);
@@ -718,12 +744,12 @@ export default function App() {
 
     if (currentUser) {
       const path = 'projects';
-      setDoc(doc(db, path, newProj.id), {
+      setDoc(doc(db, path, newProj.id), cleanUndefinedValues({
         ...newProj,
         userId: currentUser.uid,
         createdAt: Timestamp.fromDate(new Date()),
         updatedAt: Timestamp.fromDate(new Date())
-      }).catch(err => {
+      })).catch(err => {
         handleFirestoreError(err, OperationType.CREATE, path);
       });
     } else {
